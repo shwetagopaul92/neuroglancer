@@ -214,6 +214,20 @@ export class DisplayOptionsTab extends Tab {
 
     {
       const checkbox = this.registerDisposer(
+          new TrackableBooleanCheckbox(layer.displayState.baseSegmentColoring));
+      checkbox.element.className =
+          'neuroglancer-segmentation-dropdown-base-segment-coloring neuroglancer-noselect';
+      const label = document.createElement('label');
+      label.title = 'Color base segments individually';
+      label.className =
+          'neuroglancer-segmentation-dropdown-base-segment-coloring neuroglancer-noselect';
+      label.appendChild(document.createTextNode('Base segment coloring'));
+      label.appendChild(checkbox.element);
+      element.appendChild(label);
+    }
+
+    {
+      const checkbox = this.registerDisposer(
           new TrackableBooleanCheckbox(layer.displayState.ignoreNullVisibleSet));
       checkbox.element.className = 'neuroglancer-noselect';
       const label = document.createElement('label');
