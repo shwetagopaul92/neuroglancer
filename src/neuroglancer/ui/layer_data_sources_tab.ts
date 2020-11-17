@@ -177,6 +177,8 @@ export class DataSourceSubsourceView extends RefCounted {
       sourceTypeStr = 'annotations';
     } else if (subsource.singleMesh !== undefined) {
       sourceTypeStr = 'single mesh';
+    } else if (subsource.segmentationGraph !== undefined) {
+      sourceTypeStr = 'segmentation graph';
     }
     sourceType.textContent = sourceTypeStr;
   }

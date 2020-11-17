@@ -21,6 +21,7 @@ import {CoordinateSpace, CoordinateSpaceTransform, CoordinateTransformSpecificat
 import {CredentialsManager} from 'neuroglancer/credentials_provider';
 import {MeshSource, MultiscaleMeshSource} from 'neuroglancer/mesh/frontend';
 import {SegmentPropertyMap} from 'neuroglancer/segmentation_display_state/property_map';
+import {SegmentationGraphSource} from 'neuroglancer/segmentation_graph/source';
 import {SingleMeshSource} from 'neuroglancer/single_mesh/frontend';
 import {SkeletonSource} from 'neuroglancer/skeleton/frontend';
 import {MultiscaleVolumeChunkSource} from 'neuroglancer/sliceview/volume/frontend';
@@ -119,6 +120,7 @@ export interface DataSubsource {
   local?: LocalDataSource;
   singleMesh?: SingleMeshSource;
   segmentPropertyMap?: SegmentPropertyMap;
+  segmentationGraph?: SegmentationGraphSource;
 }
 
 export interface CompleteUrlOptionsBase {

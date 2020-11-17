@@ -26,6 +26,7 @@ import {RenderScaleHistogram, trackableRenderScaleTarget} from 'neuroglancer/ren
 import {SegmentColorHash} from 'neuroglancer/segment_color';
 import {augmentSegmentId, bindSegmentListWidth, makeSegmentWidget, maybeAugmentSegmentId, registerCallbackWhenSegmentationDisplayStateChanged, SegmentationColorGroupState, SegmentationDisplayState, SegmentationGroupState, SegmentSelectionState, Uint64MapEntry} from 'neuroglancer/segmentation_display_state/frontend';
 import {getPreprocessedSegmentPropertyMap, PreprocessedSegmentPropertyMap, SegmentPropertyMap} from 'neuroglancer/segmentation_display_state/property_map';
+import {SegmentationGraphSource, SegmentationGraphSourceConnection} from 'neuroglancer/segmentation_graph/source';
 import {SharedDisjointUint64Sets} from 'neuroglancer/shared_disjoint_sets';
 import {SharedWatchableValue} from 'neuroglancer/shared_watchable_value';
 import {PerspectiveViewSkeletonLayer, SkeletonLayer, SkeletonRenderingOptions, SliceViewPanelSkeletonLayer} from 'neuroglancer/skeleton/frontend';
@@ -35,7 +36,7 @@ import {SegmentationRenderLayer} from 'neuroglancer/sliceview/volume/segmentatio
 import {StatusMessage} from 'neuroglancer/status';
 import {trackableAlphaValue} from 'neuroglancer/trackable_alpha';
 import {TrackableBoolean} from 'neuroglancer/trackable_boolean';
-import {constantWatchableValue, IndirectTrackableValue, IndirectWatchableValue, makeCachedLazyDerivedWatchableValue, registerNestedSync, TrackableValue, TrackableValueInterface, WatchableValue, WatchableValueInterface} from 'neuroglancer/trackable_value';
+import {IndirectTrackableValue, IndirectWatchableValue, makeCachedDerivedWatchableValue, makeCachedLazyDerivedWatchableValue, registerNestedSync, TrackableValue, TrackableValueInterface, WatchableValue, WatchableValueInterface} from 'neuroglancer/trackable_value';
 import {UserLayerWithAnnotationsMixin} from 'neuroglancer/ui/annotations';
 import {SegmentDisplayTab} from 'neuroglancer/ui/segment_list';
 import {DisplayOptionsTab} from 'neuroglancer/ui/segmentation_display_options_tab';
@@ -72,6 +73,7 @@ const MESH_SILHOUETTE_RENDERING_JSON_KEY = 'meshSilhouetteRendering';
 const LINKED_SEGMENTATION_GROUP_JSON_KEY = 'linkedSegmentationGroup';
 const LINKED_SEGMENTATION_COLOR_GROUP_JSON_KEY = 'linkedSegmentationColorGroup';
 const SEGMENT_DEFAULT_COLOR_JSON_KEY = 'segmentDefaultColor';
+const ANCHOR_SEGMENT_JSON_KEY = 'anchorSegment';
 
 export class SegmentationUserLayerGroupState extends RefCounted implements SegmentationGroupState {
   specificationChanged = new Signal();
@@ -79,7 +81,6 @@ export class SegmentationUserLayerGroupState extends RefCounted implements Segme
     super();
     const {specificationChanged} = this;
     this.visibleSegments.changed.add(specificationChanged.dispatch);
-    this.segmentEquivalences.changed.add(specificationChanged.dispatch);
     this.hideSegmentZero.changed.add(specificationChanged.dispatch);
     this.segmentQuery.changed.add(specificationChanged.dispatch);
   }
@@ -90,6 +91,10 @@ export class SegmentationUserLayerGroupState extends RefCounted implements Segme
         value => this.hideSegmentZero.restoreState(value));
     verifyOptionalObjectProperty(specification, EQUIVALENCES_JSON_KEY, value => {
       this.segmentEquivalences.restoreState(value);
+      if (this.segmentEquivalences.size > 0) {
+        this.localSegmentEquivalences = true;
+        this.segmentEquivalences.changed.add(this.specificationChanged.dispatch);
+      }
     });
 
     verifyOptionalObjectProperty(specification, SEGMENTS_JSON_KEY, segmentsValue => {
@@ -111,7 +116,7 @@ export class SegmentationUserLayerGroupState extends RefCounted implements Segme
       x[SEGMENTS_JSON_KEY] = visibleSegments.toJSON();
     }
     let {segmentEquivalences} = this;
-    if (segmentEquivalences.size > 0) {
+    if (this.localSegmentEquivalences && segmentEquivalences.size > 0) {
       x[EQUIVALENCES_JSON_KEY] = segmentEquivalences.toJSON();
     }
     x[SEGMENT_QUERY_JSON_KEY] = this.segmentQuery.toJSON();
@@ -127,8 +132,12 @@ export class SegmentationUserLayerGroupState extends RefCounted implements Segme
 
   visibleSegments = this.registerDisposer(Uint64Set.makeWithCounterpart(this.layer.manager.rpc));
   segmentPropertyMap = new WatchableValue<PreprocessedSegmentPropertyMap|undefined>(undefined);
-  segmentEquivalences =
-    this.registerDisposer(SharedDisjointUint64Sets.makeWithCounterpart(this.layer.manager.rpc, constantWatchableValue(false)));
+  graph = new WatchableValue<SegmentationGraphSource|undefined>(undefined);
+  segmentEquivalences = this.registerDisposer(SharedDisjointUint64Sets.makeWithCounterpart(
+      this.layer.manager.rpc,
+      this.layer.registerDisposer(
+          makeCachedDerivedWatchableValue(x => x !== undefined, [this.graph]))));
+  localSegmentEquivalences: boolean = false;
   maxIdLength = new WatchableValue(1);
   hideSegmentZero = new TrackableBoolean(true, true);
   segmentQuery = new TrackableValue<string>('', verifyString);
@@ -317,6 +326,8 @@ export class SegmentationUserLayer extends Base {
   sliceViewRenderScaleHistogram = new RenderScaleHistogram();
   sliceViewRenderScaleTarget = trackableRenderScaleTarget(1);
 
+  graphConnection: SegmentationGraphSourceConnection|undefined;
+
   bindSegmentListWidth(element: HTMLElement) {
     return bindSegmentListWidth(this.displayState, element);
   }
@@ -346,6 +357,9 @@ export class SegmentationUserLayer extends Base {
 
   displayState = new SegmentationUserLayerDisplayState(this);
 
+  anchorSegment = new TrackableValue<Uint64|undefined>(
+      undefined, x => x === undefined ? undefined : Uint64.parseString(x));
+
   constructor(managedLayer: Borrowed<ManagedUserLayer>) {
     super(managedLayer);
     this.registerDisposer(registerNestedSync((context, group) => {
@@ -366,6 +380,7 @@ export class SegmentationUserLayer extends Base {
     this.displayState.skeletonRenderingOptions.changed.add(this.specificationChanged.dispatch);
     this.displayState.renderScaleTarget.changed.add(this.specificationChanged.dispatch);
     this.displayState.silhouetteRendering.changed.add(this.specificationChanged.dispatch);
+    this.anchorSegment.changed.add(this.specificationChanged.dispatch);
     this.sliceViewRenderScaleTarget.changed.add(this.specificationChanged.dispatch);
     this.displayState.linkedSegmentationGroup.changed.add(
         () => this.updateDataSubsourceActivations());
@@ -399,9 +414,11 @@ export class SegmentationUserLayer extends Base {
   activateDataSubsources(subsources: Iterable<LoadedDataSubsource>) {
     const updatedSegmentPropertyMaps: SegmentPropertyMap[] = [];
     const isGroupRoot = this.displayState.linkedSegmentationGroup.root.value === this;
+    let updatedGraph: SegmentationGraphSource|undefined;
     for (const loadedSubsource of subsources) {
       if (this.addStaticAnnotations(loadedSubsource)) continue;
-      const {volume, mesh, segmentPropertyMap} = loadedSubsource.subsourceEntry.subsource;
+      const {volume, mesh, segmentPropertyMap, segmentationGraph} =
+          loadedSubsource.subsourceEntry.subsource;
       if (volume instanceof MultiscaleVolumeChunkSource) {
         switch (volume.dataType) {
           case DataType.FLOAT32:
@@ -443,12 +460,32 @@ export class SegmentationUserLayer extends Base {
           loadedSubsource.activate(() => {});
           updatedSegmentPropertyMaps.push(segmentPropertyMap);
         }
+      } else if (segmentationGraph !== undefined) {
+        if (!isGroupRoot) {
+          loadedSubsource.deactivate(`Not supported on non-root linked segmentation layers`);
+        } else {
+          if (this.displayState.segmentationGroupState.value.localSegmentEquivalences) {
+            loadedSubsource.deactivate('Not compatible with local equivalences');
+          } else if (updatedGraph !== undefined) {
+            loadedSubsource.deactivate('Only one segmentation graph is supported');
+          } else {
+            updatedGraph = segmentationGraph;
+            loadedSubsource.activate(refCounted => {
+              this.graphConnection = refCounted.registerDisposer(
+                  segmentationGraph.connect(this.displayState.segmentationGroupState.value));
+              refCounted.registerDisposer(() => {
+                this.graphConnection = undefined;
+              });
+            });
+          }
+        }
       } else {
         loadedSubsource.deactivate('Not compatible with segmentation layer');
       }
     }
     this.displayState.originalSegmentationGroupState.segmentPropertyMap.value =
         getPreprocessedSegmentPropertyMap(this.manager.chunkManager, updatedSegmentPropertyMaps);
+    this.displayState.originalSegmentationGroupState.graph.value = updatedGraph;
   }
 
   getLegacyDataSourceSpecifications(
@@ -500,6 +537,7 @@ export class SegmentationUserLayer extends Base {
       skeletonRenderingOptions.shader.restoreState(skeletonShader);
     }
     this.displayState.renderScaleTarget.restoreState(specification[MESH_RENDER_SCALE_JSON_KEY]);
+    this.anchorSegment.restoreState(specification[ANCHOR_SEGMENT_JSON_KEY]);
     this.sliceViewRenderScaleTarget.restoreState(
         specification[CROSS_SECTION_RENDER_SCALE_JSON_KEY]);
     const linkedSegmentationGroupName = verifyOptionalObjectProperty(
@@ -526,6 +564,7 @@ export class SegmentationUserLayer extends Base {
     x[BASE_SEGMENT_COLORING_JSON_KEY] = this.displayState.baseSegmentColoring.toJSON();
     x[IGNORE_NULL_VISIBLE_SET_JSON_KEY] = this.displayState.ignoreNullVisibleSet.toJSON();
     x[MESH_SILHOUETTE_RENDERING_JSON_KEY] = this.displayState.silhouetteRendering.toJSON();
+    x[ANCHOR_SEGMENT_JSON_KEY] = this.anchorSegment.toJSON();
     x[SKELETON_RENDERING_JSON_KEY] = this.displayState.skeletonRenderingOptions.toJSON();
     x[MESH_RENDER_SCALE_JSON_KEY] = this.displayState.renderScaleTarget.toJSON();
     x[CROSS_SECTION_RENDER_SCALE_JSON_KEY] = this.sliceViewRenderScaleTarget.toJSON();
@@ -616,7 +655,6 @@ export class SegmentationUserLayer extends Base {
     }
     return json;
   }
-
 
   private displaySegmentationSelection(
       state: this['selectionState'], parent: HTMLElement, context: DependentViewContext): boolean {

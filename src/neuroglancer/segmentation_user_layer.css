@@ -103,3 +103,12 @@
   text-align: right;
   flex: 1;
 }
+
+.neuroglancer-segmentation-toolbox {
+  display: inline-block;
+}
+
+.neuroglancer-merge-segments-status {
+  display: flex;
+  flex-direction: row;
+}
