@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import './dot_drag_drop.css';
+
 export type RelativeDragHandler = (event: MouseEvent, deltaX: number, deltaY: number) => void;
 export function startRelativeMouseDrag(
     initialEvent: MouseEvent, handler: RelativeDragHandler,
@@ -23,29 +25,22 @@ export function startRelativeMouseDrag(
   console.log(prevClientX)
   console.log(prevClientY)
   let dragCoordinates = new Array();
-  const mouseDragHandler = (e: PointerEvent) => {
+  const mouseMoveHandler = (e: PointerEvent) => {
     const deltaX = e.clientX - prevClientX;
     const deltaY = e.clientY - prevClientY;
     prevClientX = e.clientX;
     prevClientY = e.clientY;
-    //dragCoordinates.push(e.clientX, e.clientY);
-    //console.log(dragCoordinates);
-    //alert(dragCoordinates);
-    handler(e, deltaX, deltaY);
-  };
-  const mouseMoveHandler = (e: PointerEvent) => {
     console.log("mouse location:", e.clientX, e.clientY);
     dragCoordinates.push(e.clientX, e.clientY);
-    console.log(dragCoordinates)
+    console.log(dragCoordinates);
     var pos = e;
-    var dot;
-    dot = document.createElement('div');
+    const dot = document.createElement('div');
     dot.className = "dot";
     dot.style.left = pos.x + "px";
     dot.style.top = pos.y + "px";
     document.body.appendChild(dot);
+    handler(e, deltaX, deltaY);
   };
-
   const button = initialEvent.button;
   const cancel = (e: PointerEvent) => {
     document.removeEventListener('pointermove', mouseMoveHandler, true);
@@ -60,9 +55,8 @@ export function startRelativeMouseDrag(
       cancel(e);
     }
   };
-
   document.addEventListener('pointermove', mouseMoveHandler, true);
-  document.addEventListener('pointerdrag', mouseDragHandler, true);
+  //document.addEventListener('pointerdrag', mouseDragHandler, true);
   document.addEventListener('pointerup', mouseUpHandler, false);
   document.addEventListener('pointercancel', cancel, false);
 }
