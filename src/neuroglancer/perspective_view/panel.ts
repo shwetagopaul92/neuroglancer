@@ -402,10 +402,12 @@ export class PerspectivePanel extends RenderedDataPanel {
       if (mousePosition.length !== rank) {
         mousePosition = mouseState.position = new Float32Array(rank);
       }
+      console.log(mousePosition);
       if (unsnappedPosition.length !== rank) {
         unsnappedPosition = mouseState.unsnappedPosition = new Float32Array(rank);
       }
       mousePosition.set(voxelCoordinates);
+      console.log(mousePosition);
       mouseState.coordinateSpace = this.navigationState.coordinateSpace.value;
       const displayDimensions = this.navigationState.pose.displayDimensions.value;
       const {displayDimensionIndices} = displayDimensions;
@@ -413,6 +415,7 @@ export class PerspectivePanel extends RenderedDataPanel {
         mousePosition[displayDimensionIndices[i]] = tempVec3[i];
       }
       unsnappedPosition.set(mousePosition);
+      console.log(mousePosition);
       const pickValue = data[4 * pickDiameter * pickDiameter + 4 * offset];
       pickingData.pickIDs.setMouseState(mouseState, pickValue);
       mouseState.displayDimensions = displayDimensions;

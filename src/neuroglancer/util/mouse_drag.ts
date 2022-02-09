@@ -24,15 +24,18 @@ export function startRelativeMouseDrag(
   let prevClientX = initialEvent.clientX, prevClientY = initialEvent.clientY;
   console.log(prevClientX)
   console.log(prevClientY)
-  let dragCoordinates = new Array();
+  let screenDragCoordinates = new Array();
+  //let imageDragCoordinates = new Array ();
   const mouseMoveHandler = (e: PointerEvent) => {
     const deltaX = e.clientX - prevClientX;
     const deltaY = e.clientY - prevClientY;
     prevClientX = e.clientX;
     prevClientY = e.clientY;
-    console.log("mouse location:", e.clientX, e.clientY);
-    dragCoordinates.push(e.clientX, e.clientY);
-    //console.log(dragCoordinates);
+    console.log("screen mouse location:", e.clientX, e.clientY);
+    //console.log("image mouse location:", e.clientX, e.clientY);
+    screenDragCoordinates.push(e.clientX, e.clientY);
+    //console.log(screenDragCoordinates);
+    //imageDragCoordinates.push()
     var pos = e;
     const dot = document.createElement('div');
     dot.className = "dot";
@@ -44,7 +47,7 @@ export function startRelativeMouseDrag(
   //console.log(dragCoordinates);
   const button = initialEvent.button;
   const cancel = (e: PointerEvent) => {
-    document.removeEventListener('pointermove', mouseMoveHandler, true);ç
+    document.removeEventListener('pointermove', mouseMoveHandler, true);
     document.removeEventListener('pointerup', mouseUpHandler, false);
 
     if (finishDragHandler !== undefined) {
@@ -53,7 +56,7 @@ export function startRelativeMouseDrag(
   };
   const mouseUpHandler = (e: PointerEvent) => {
     if (e.button === button) {
-      console.log(dragCoordinates);
+      console.log(screenDragCoordinates);
       cancel(e);
     }
   };

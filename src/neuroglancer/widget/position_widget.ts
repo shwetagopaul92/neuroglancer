@@ -326,6 +326,7 @@ export class PositionWidget extends RefCounted {
       const {position} = this;
       const voxelCoordinates = position.value;
       voxelCoordinates[dimensionIndex] = x + 0.5;
+      //console.log(voxelCoordinates)
       widget.modified = false;
       position.value = voxelCoordinates;
     };
@@ -388,11 +389,14 @@ export class PositionWidget extends RefCounted {
         const {position} = this;
         const voxelCoordinates = position.value;
         voxelCoordinates[dimensionIndex] = coordinates[i] + 0.5;
+        //console.log(voxelCoordinates)
         widget.modified = false;
         position.value = voxelCoordinates;
+        //console.log(voxelCoordinates)
       });
       dropdown.appendChild(entryElement);
       entries.push({entryElement, coordinateElement, labelElement});
+      //console.log(entries)
     }
     //const dropdownOwner = widget.dropdownOwner!;
   }
@@ -416,6 +420,7 @@ export class PositionWidget extends RefCounted {
     widget.container.appendChild(dropdown);
 
     const coordinateArray = getCoordinateArray(widget.coordinateSpace, initialDimensionIndex);
+    console.log(coordinateArray);
     if (coordinateArray == null) {
       this.openRegularDropdown(widget, dropdown);
     } else {
@@ -825,6 +830,7 @@ export class PositionWidget extends RefCounted {
         title: 'Copy position to clipboard',
         onClick: () => {
           const result = setClipboard(this.getPositionText());
+          console.log('position text is', result);
           StatusMessage.showTemporaryMessage(
               result ? 'Position copied to clipboard' : 'Failed to copy position to clipboard');
         }
@@ -884,6 +890,7 @@ export class PositionWidget extends RefCounted {
     }
     voxelCoordinates[axisIndex] = newValue + 0.5;
     this.position.value = voxelCoordinates;
+    //console.log(voxelCoordinates);
     this.updateView();
   }
 
@@ -951,6 +958,7 @@ export class PositionWidget extends RefCounted {
   private getPositionText() {
     const {position} = this;
     if (position.valid) {
+      console.log('position is', position.value.map(x => Math.floor(x)).join(', '));
       return position.value.map(x => Math.floor(x)).join(', ');
     } else {
       return '';
