@@ -32,7 +32,7 @@ export function startRelativeMouseDrag(
     prevClientY = e.clientY;
     console.log("mouse location:", e.clientX, e.clientY);
     dragCoordinates.push(e.clientX, e.clientY);
-    console.log(dragCoordinates);
+    //console.log(dragCoordinates);
     var pos = e;
     const dot = document.createElement('div');
     dot.className = "dot";
@@ -41,9 +41,10 @@ export function startRelativeMouseDrag(
     document.body.appendChild(dot);
     handler(e, deltaX, deltaY);
   };
+  //console.log(dragCoordinates);
   const button = initialEvent.button;
   const cancel = (e: PointerEvent) => {
-    document.removeEventListener('pointermove', mouseMoveHandler, true);
+    document.removeEventListener('pointermove', mouseMoveHandler, true);ç
     document.removeEventListener('pointerup', mouseUpHandler, false);
 
     if (finishDragHandler !== undefined) {
@@ -52,6 +53,7 @@ export function startRelativeMouseDrag(
   };
   const mouseUpHandler = (e: PointerEvent) => {
     if (e.button === button) {
+      console.log(dragCoordinates);
       cancel(e);
     }
   };
